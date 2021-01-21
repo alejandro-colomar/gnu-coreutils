@@ -45,6 +45,9 @@ static bool append;
 /* If true, ignore interrupts. */
 static bool ignore_interrupts;
 
+/* Don't write to stdout */
+static bool quiet;
+
 enum output_error
   {
     output_error_sigpipe,      /* traditional behavior, sigpipe enabled.  */
@@ -61,6 +64,8 @@ static struct option const long_options[] =
   {"append", no_argument, NULL, 'a'},
   {"ignore-interrupts", no_argument, NULL, 'i'},
   {"output-error", optional_argument, NULL, 'p'},
+  {"quiet", no_argument, NULL, 'q'},
+  {"silent", no_argument, NULL, 'q'},
   {GETOPT_HELP_OPTION_DECL},
   {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
@@ -93,6 +98,7 @@ Copy standard input to each FILE, and also to standard output.\n\
 "), stdout);
       fputs (_("\
   -p                        diagnose errors writing to non pipes\n\
+  -q, --quiet, --silent     don't write to standard output\n\
       --output-error[=MODE]   set behavior on write error.  See MODE below\n\
 "), stdout);
       fputs (HELP_OPTION_DESCRIPTION, stdout);
@@ -130,6 +136,7 @@ main (int argc, char **argv)
 
   append = false;
   ignore_interrupts = false;
+  quiet = false;
 
   while ((optc = getopt_long (argc, argv, "aip", long_options, NULL)) != -1)
     {
@@ -149,6 +156,10 @@ main (int argc, char **argv)
                                       output_error_args, output_error_types);
           else
             output_error = output_error_warn_nopipe;
+          break;
+
+        case 'q':
+          quiet = true;
           break;
 
         case_GETOPT_HELP_CHAR;
@@ -235,8 +246,9 @@ tee_files (int nfiles, char **files)
         break;
 
       /* Write to all NFILES + 1 descriptors.
-         Standard output is the first one.  */
-      for (i = 0; i <= nfiles; i++)
+         Standard output is the first one.
+         If 'quiet' is true, write to descriptors 1 and above (omit stdout)  */
+      for (i = quiet; i <= nfiles; i++)
         if (descriptors[i]
             && fwrite (buffer, bytes_read, 1, descriptors[i]) != 1)
           {
